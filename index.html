@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Sopa de letras 🌷</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;font-family:Georgia,serif;background:#DB9296;color:#35515a}
+body{overflow-x:hidden}
+.bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.bubble{position:absolute;border:1px solid rgba(255,255,255,.72);background:rgba(255,255,255,.25);border-radius:50%;animation:float linear infinite}
+.spark{position:absolute;width:5px;height:5px;background:rgba(255,255,255,.85);border-radius:50%;animation:spark 3s ease-in-out infinite}
+@keyframes float{from{transform:translateY(110vh);opacity:0}15%{opacity:.8}85%{opacity:.65}to{transform:translateY(-15vh);opacity:0}}
+@keyframes spark{0%,100%{transform:scale(.3);opacity:.1}50%{transform:scale(1.4);opacity:.9}}
+.wrap{position:relative;z-index:1;width:100%;max-width:680px;margin:auto;padding:20px 10px 30px}
+.card{background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);border-radius:28px;padding:20px 12px 24px;box-shadow:0 12px 35px rgba(76,130,145,.18);backdrop-filter:blur(5px)}
+h1{text-align:center;margin:0;color:#416c78;font-size:25px}
+.sub{text-align:center;font-size:14px;line-height:1.5;margin:8px 0 17px}
+#board{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:3px;touch-action:none;user-select:none}
+.cell{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:7px;background:rgba(255,255,255,.72);font:700 clamp(11px,3.7vw,21px)/1 Arial,sans-serif;color:#46616a;cursor:pointer}
+.cell.selected{background:rgba(191,232,242,.90);box-shadow:inset 0 0 0 2px rgba(120,190,205,.45)}
+.cell.found{background:rgba(255,255,255,.96);color:#5d8e99;box-shadow:inset 0 0 0 2px rgba(244,164,177,.72)}
+.cell.secret{background:rgba(250,198,211,.95)!important;color:#9d566b!important;box-shadow:0 0 0 2px #fff,0 0 14px rgba(255,166,192,.6)}
+#words{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:18px}
+.word{padding:8px 6px;border-radius:13px;background:rgba(255,255,255,.58);text-align:center;font-size:13px;transition:.3s}
+.word.done{text-decoration:line-through;background:rgba(225,246,249,.92);color:#77a4ad}
+.word.secretDone{background:rgba(255,220,228,.92);color:#a45e72}
+#message{text-align:center;min-height:24px;margin:16px 4px 0;font-size:15px;font-style:italic}
+button{display:block;margin:10px auto 0;border:0;border-radius:18px;padding:9px 17px;background:#fff;color:#55747d;font-family:inherit;box-shadow:0 4px 13px rgba(65,105,115,.13)}
+#done{display:none;text-align:center;margin-top:15px;padding:14px;border-radius:18px;background:rgba(255,255,255,.75);animation:pop .5s ease}.progress-note{display:inline-block;margin-top:4px;font-size:14px;font-style:italic;color:#8b5c61}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+@media(max-width:380px){#board{gap:2px}.cell{border-radius:5px}.card{padding-left:8px;padding-right:8px}}
+
+.completion-card{
+  margin-top:8px;
+  padding:18px 14px 16px;
+  border-radius:22px;
+  background:rgba(255,255,255,.78);
+  box-shadow:0 8px 28px rgba(80,45,55,.10);
+  border:1px solid rgba(255,255,255,.72);
+  animation:completionIn .65s cubic-bezier(.2,.8,.2,1);
+}
+.congrats{font-family:Georgia,serif;font-size:20px;line-height:1.5;color:#9d566b}
+.won{margin-top:7px;font-family:Georgia,serif;font-size:18px;color:#9d566b}
+.continue{margin-top:14px;font-size:14px;color:#76545b}
+.go-chat{
+  margin-top:14px;
+  border:0;
+  border-radius:18px;
+  padding:9px 17px;
+  background:rgba(191,232,242,.9);
+  color:#5e7076;
+  font:600 14px Georgia,serif;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(80,120,130,.14);
+}
+.go-chat:active{transform:scale(.97)}
+@keyframes completionIn{
+  from{opacity:0;transform:translateY(10px) scale(.97)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+
+.completion-screen{
+ position:fixed; inset:0; z-index:9999;
+ display:flex; flex-direction:column; align-items:center;
+ justify-content:center; text-align:center;
+ padding:32px 22px; box-sizing:border-box;
+ background:rgba(219,146,150,.98);
+ animation:completionFade .7s ease both;
+}
+.completion-screen .congrats{
+ font-family:Georgia,serif; font-size:clamp(22px,6vw,34px);
+ line-height:1.5; color:#fff;
+}
+.completion-screen .won{
+ margin-top:12px; font-family:Georgia,serif;
+ font-size:clamp(19px,5vw,28px); color:#fff;
+}
+.completion-screen .continue{
+ margin-top:24px; font-size:clamp(15px,4vw,19px);
+ color:rgba(255,255,255,.94);
+}
+.completion-screen .chat-notice{
+ margin-top:28px; padding:11px 20px;
+ border:1px solid rgba(255,255,255,.55); border-radius:20px;
+ background:rgba(255,255,255,.16); color:#fff;
+ font-family:Georgia,serif; font-size:clamp(15px,4vw,19px);
+}
+@keyframes completionFade{
+ from{opacity:0;transform:scale(1.02)}
+ to{opacity:1;transform:scale(1)}
+}
+
+</style>
+</head>
+<body>
+<div class="bg" id="bg"></div>
+<div class="wrap">
+ <div class="card">
+  <h1>｟ 𝗦opa de letras ｠ 𓂃 ࣪˖ ִֶָ🌷</h1>
+  <div class="sub">Mantén el dedo sobre la primera letra y arrástralo hasta la última.<br>También puedes buscar en horizontal, vertical y diagonal, incluso al revés. ✧</div>
+  <div id="board"></div>
+  <div id="words"></div>
+  <div id="message">Hay pequeños mensajes escondidos entre las letras... 🫧</div>
+  <button id="reset" type="button">Reiniciar sopa</button>
+  <div id="done">
+  <div class="completion-screen">
+    <div class="congrats">𝓚.　　✿　　𝓕elicidades꯭　꯭　꯭　꯭🌸𓍬　　𓏸𓏸</div>
+    <div class="won">▖　︐　　𝓖anaste　𓈓　(+)</div>
+    <div class="continue">Puedes continuar con tu recorrido</div>
+    <div class="chat-notice">｟Ve al chat｠</div>
+  </div>
+</div>
+ </div>
+</div>
+
+<script>
+const WORDS=["TEEXTRANO","TEAMO","BAOBAO","TEQUIERO","SHITO","BAMBI","SIEMPRE","RECUERDO","SONRISA","CARINO","ESPECIAL","JUNTOS","BONITO","ABRAZO","AMOR"];
+const LABEL={TEEXTRANO:"TE EXTRAÑO",TEAMO:"TE AMO",BAOBAO:"BAO BAO",TEQUIERO:"TE QUIERO",SHITO:"SHITO",BAMBI:"BAMBI",SIEMPRE:"SIEMPRE",RECUERDO:"RECUERDO",SONRISA:"SONRISA",CARINO:"CARIÑO",ESPECIAL:"ESPECIAL",JUNTOS:"JUNTOS",BONITO:"BONITO",ABRAZO:"ABRAZO",AMOR:"AMOR"};
+const N=15;
+const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+let grid,placements,found,selected,dragging=false;
+
+function makeBackground(){
+ const bg=document.getElementById("bg");
+ for(let i=0;i<22;i++){
+  const b=document.createElement("i");b.className="bubble";
+  const s=16+Math.random()*58;b.style.width=s+"px";b.style.height=s+"px";
+  b.style.left=Math.random()*100+"%";b.style.animationDuration=(8+Math.random()*11)+"s";
+  b.style.animationDelay=(-Math.random()*14)+"s";bg.appendChild(b);
+ }
+ for(let i=0;i<25;i++){
+  const s=document.createElement("i");s.className="spark";
+  s.style.left=Math.random()*100+"%";s.style.top=Math.random()*100+"%";
+  s.style.animationDelay=(-Math.random()*3)+"s";bg.appendChild(s);
+ }
+}
+
+function canPlace(g,word,x,y,dx,dy){
+ for(let i=0;i<word.length;i++){
+  const xx=x+dx*i,yy=y+dy*i;
+  if(xx<0||xx>=N||yy<0||yy>=N)return false;
+  if(g[yy][xx] && g[yy][xx]!==word[i])return false;
+ }
+ return true;
+}
+
+function generate(){
+ const dirs=[
+  [1,0], [0,1], [1,1], [1,-1],
+  [-1,0], [0,-1], [-1,-1], [-1,1]
+ ];
+ let seed=20260914;
+ function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+
+ // Deterministic search for a balanced, varied board.
+ for(let attempt=0;attempt<3000;attempt++){
+  const g=Array.from({length:N},()=>Array(N).fill(""));
+  const ps=[];
+  const ordered=[...WORDS].sort((a,b)=>b.length-a.length);
+  let success=true;
+
+  for(const word of ordered){
+   const candidates=[];
+   for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    for(let d=0;d<dirs.length;d++){
+     const [dx,dy]=dirs[d];
+     let ok=true;
+     for(let k=0;k<word.length;k++){
+      const xx=x+dx*k,yy=y+dy*k;
+      if(xx<0||xx>=N||yy<0||yy>=N ||
+         (g[yy][xx] && g[yy][xx]!==word[k])){ok=false;break;}
+     }
+     if(ok)candidates.push([x,y,dx,dy,d]);
+    }
+   }
+
+   if(!candidates.length){success=false;break;}
+
+   // Prefer forward directions while still allowing reverse ones.
+   const forward=candidates.filter(c=>c[4]<4);
+   const reverse=candidates.filter(c=>c[4]>=4);
+   const reverseCount=ps.filter(p=>p.reverse).length;
+
+   let pool;
+   // Roughly 2/3 forward, 1/3 reverse.
+   if(reverseCount<5 && reverse.length && rnd()<0.34) pool=reverse;
+   else if(forward.length) pool=forward;
+   else pool=candidates;
+
+   const pick=pool[Math.floor(rnd()*pool.length)];
+   const [x,y,dx,dy,d]=pick;
+   const cells=[];
+   for(let k=0;k<word.length;k++){
+    const xx=x+dx*k,yy=y+dy*k;
+    g[yy][xx]=word[k];
+    cells.push([xx,yy]);
+   }
+   ps.push({word,cells,reverse:d>=4});
+  }
+
+  if(!success)continue;
+
+  const reverse=ps.filter(p=>p.reverse).length;
+  const forward=ps.length-reverse;
+  const horizontal=ps.filter(p=>p.cells.length>1 &&
+    p.cells[1][1]===p.cells[0][1]).length;
+  const vertical=ps.filter(p=>p.cells.length>1 &&
+    p.cells[1][0]===p.cells[0][0]).length;
+  const diagonal=ps.filter(p=>p.cells.length>1 &&
+    Math.abs(p.cells[1][0]-p.cells[0][0])===1 &&
+    Math.abs(p.cells[1][1]-p.cells[0][1])===1).length;
+
+  if(forward<8 || reverse>7 || horizontal<3 || vertical<3 || diagonal<3)continue;
+
+  const letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)
+   if(!g[y][x])g[y][x]=letters[Math.floor(rnd()*letters.length)];
+
+  grid=g;
+  placements=ps;
+  return;
+ }
+ throw new Error("No se pudo generar una sopa equilibrada.");
+}
+function render(){
+ const board=document.getElementById("board"), list=document.getElementById("words");
+ board.innerHTML="";list.innerHTML="";
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  const c=document.createElement("div");
+  c.className="cell";c.textContent=grid[y][x];c.dataset.x=x;c.dataset.y=y;
+  board.appendChild(c);
+ }
+ WORDS.forEach(w=>{
+  const d=document.createElement("div");d.className="word";d.id="word-"+w;d.textContent=LABEL[w];list.appendChild(d);
+ });
+}
+
+function cellFromPoint(x,y){
+ const e=document.elementFromPoint(x,y);
+ return e&&e.classList.contains("cell")?e:null;
+}
+function line(a,b){
+ const dx=b[0]-a[0],dy=b[1]-a[1];
+ if(!(dx===0||dy===0||Math.abs(dx)===Math.abs(dy)))return [];
+ const n=Math.max(Math.abs(dx),Math.abs(dy)),sx=Math.sign(dx),sy=Math.sign(dy);
+ return Array.from({length:n+1},(_,i)=>[a[0]+sx*i,a[1]+sy*i]);
+}
+function paint(){
+ document.querySelectorAll(".cell.selected").forEach(e=>e.classList.remove("selected"));
+ selected.forEach(([x,y])=>{
+  const e=document.querySelector('.cell[data-x="'+x+'"][data-y="'+y+'"]');
+  if(e&&!e.classList.contains("found"))e.classList.add("selected");
+ });
+}
+
+let audioCtx=null;
+function playFindSound(){
+ try{
+  audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==="suspended")audioCtx.resume();
+  const now=audioCtx.currentTime;
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type="sine";
+  osc.frequency.setValueAtTime(660,now);
+  osc.frequency.exponentialRampToValueAtTime(990,now+0.10);
+  gain.gain.setValueAtTime(0.0001,now);
+  gain.gain.exponentialRampToValueAtTime(0.16,now+0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001,now+0.20);
+  osc.connect(gain);gain.connect(audioCtx.destination);
+  osc.start(now);osc.stop(now+0.21);
+ }catch(e){}
+}
+function playShitoSound(){
+ try{
+  audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==="suspended")audioCtx.resume();
+  const now=audioCtx.currentTime;
+  [523.25,659.25,783.99,1046.5].forEach((freq,i)=>{
+   const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+   osc.type="sine";osc.frequency.value=freq;
+   const t=now+i*0.075;
+   gain.gain.setValueAtTime(0.0001,t);
+   gain.gain.exponentialRampToValueAtTime(0.14,t+0.015);
+   gain.gain.exponentialRampToValueAtTime(0.0001,t+0.30);
+   osc.connect(gain);gain.connect(audioCtx.destination);
+   osc.start(t);osc.stop(t+0.31);
+  });
+ }catch(e){}
+}
+
+function begin(e){
+ e.preventDefault();
+ const p=e.touches?e.touches[0]:e;
+ const c=cellFromPoint(p.clientX,p.clientY);if(!c)return;
+ dragging=true;selected=[[+c.dataset.x,+c.dataset.y]];paint();
+}
+function move(e){
+ if(!dragging)return;e.preventDefault();
+ const p=e.touches?e.touches[0]:e;
+ const c=cellFromPoint(p.clientX,p.clientY);if(!c)return;
+ const end=[+c.dataset.x,+c.dataset.y];
+ const l=line(selected[0],end);
+ if(l.length){selected=l;paint();}
+}
+function finish(e){
+ if(!dragging)return;
+ dragging=false;
+ const current=selected.slice();
+ const key=current.map(p=>p.join(",")).join("|");
+ const reverse=current.slice().reverse().map(p=>p.join(",")).join("|");
+ const hit=placements.find(p=>{
+  const k=p.cells.map(q=>q.join(",")).join("|");
+  return k===key||k===reverse;
+ });
+ // Always clear temporary selection first.
+ document.querySelectorAll(".cell.selected").forEach(el=>el.classList.remove("selected"));
+ if(hit && !found.has(hit.word)){
+  found.add(hit.word);
+  hit.cells.forEach(([x,y])=>{
+   const c=document.querySelector('.cell[data-x="'+x+'"][data-y="'+y+'"]');
+   if(c){c.classList.add("found");if(hit.word==="SHITO")c.classList.add("secret");}
+  });
+  const item=document.getElementById("word-"+hit.word);
+  if(item)item.classList.add("done");
+  if(hit.word==="SHITO"){
+   playShitoSound();
+   if(item)item.classList.add("secretDone");
+   shitoCelebration(hit.cells);
+  }
+  if(hit.word!=="SHITO")playFindSound();
+  document.getElementById("message").textContent=hit.word==="SHITO"?"✨ Encontraste la palabra secreta. 😉🩵":"¡Encontrada! ✧ "+LABEL[hit.word];
+  if(found.size===WORDS.length)document.getElementById("done").style.display="block";
+ }
+ selected=[];
+}
+function shitoCelebration(cells){
+ const mid=cells[Math.floor(cells.length/2)];
+ const target=document.querySelector('.cell[data-x="'+mid[0]+'"][data-y="'+mid[1]+'"]');
+ if(!target)return;
+ const r=target.getBoundingClientRect();
+
+ const flash=document.createElement("div");
+ flash.textContent="♡ SHITO ♡";
+ flash.style.position="fixed";
+ flash.style.left="50%";flash.style.top=r.top+r.height/2+"px";
+ flash.style.transform="translate(-50%,-50%) scale(.35)";
+ flash.style.zIndex="100";
+ flash.style.pointerEvents="none";
+ flash.style.padding="10px 18px";
+ flash.style.borderRadius="24px";
+ flash.style.background="rgba(255,255,255,.94)";
+ flash.style.boxShadow="0 0 0 3px rgba(255,255,255,.75),0 0 30px rgba(255,180,201,.95)";
+ flash.style.color="#9d566b";
+ flash.style.font="bold 20px Georgia,serif";
+ document.body.appendChild(flash);
+ flash.animate([
+  {transform:"translate(-50%,-50%) scale(.35)",opacity:0},
+  {transform:"translate(-50%,-50%) scale(1.18)",opacity:1,offset:.55},
+  {transform:"translate(-50%,-50%) scale(1)",opacity:1}
+ ],{duration:900,easing:"cubic-bezier(.2,.8,.2,1)"});
+ setTimeout(()=>flash.animate([
+  {transform:"translate(-50%,-50%) scale(1)",opacity:1},
+  {transform:"translate(-50%,-50%) scale(1.12)",opacity:0}
+ ],{duration:500}).onfinish=()=>flash.remove(),1500);
+
+ // Large ring
+ const ring=document.createElement("div");
+ ring.style.position="fixed";ring.style.left=r.left+r.width/2+"px";ring.style.top=r.top+r.height/2+"px";
+ ring.style.width="30px";ring.style.height="30px";ring.style.border="3px solid rgba(255,255,255,.95)";
+ ring.style.borderRadius="50%";ring.style.transform="translate(-50%,-50%)";
+ ring.style.zIndex="90";ring.style.pointerEvents="none";
+ document.body.appendChild(ring);
+ ring.animate([{transform:"translate(-50%,-50%) scale(.3)",opacity:1},{transform:"translate(-50%,-50%) scale(6)",opacity:0}],{duration:1000,easing:"ease-out"}).onfinish=()=>ring.remove();
+
+ // Visible petals/hearts/sparkles.
+ const symbols=["✦","✧","♡","❀","✦","♡"];
+ for(let i=0;i<32;i++){
+  const s=document.createElement("span");
+  s.textContent=symbols[i%symbols.length];
+  s.style.position="fixed";s.style.left=r.left+r.width/2+"px";s.style.top=r.top+r.height/2+"px";
+  s.style.zIndex="95";s.style.pointerEvents="none";s.style.color=i%2?"#ffffff":"#f5a8bd";
+  s.style.fontSize=(12+Math.random()*14)+"px";
+  document.body.appendChild(s);
+  const a=(Math.PI*2*i/32)+(Math.random()-.5)*.25,d=45+Math.random()*130;
+  s.animate([
+   {transform:"translate(-50%,-50%) scale(.2) rotate(0deg)",opacity:0},
+   {transform:"translate(-50%,-50%) scale(1.2)",opacity:1,offset:.25},
+   {transform:`translate(calc(-50% + ${Math.cos(a)*d}px),calc(-50% + ${Math.sin(a)*d}px)) scale(.65) rotate(${180+Math.random()*360}deg)`,opacity:0}
+  ],{duration:900+Math.random()*650,easing:"cubic-bezier(.2,.7,.2,1)"}).onfinish=()=>s.remove();
+ }
+}
+function reset(){
+ found=new Set();selected=[];dragging=false;document.getElementById("done").style.display="none";document.getElementById("message").textContent="Hay pequeños mensajes escondidos entre las letras... 🫧";
+ generate();render();
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ makeBackground();reset();
+ const b=document.getElementById("board");
+ b.addEventListener("touchstart",begin,{passive:false});
+ b.addEventListener("touchmove",move,{passive:false});
+ b.addEventListener("touchend",finish,{passive:false});
+ b.addEventListener("touchcancel",finish,{passive:false});
+ b.addEventListener("mousedown",begin);
+ window.addEventListener("mousemove",move);
+ window.addEventListener("mouseup",finish);
+ document.getElementById("reset").addEventListener("click",reset);
+});
+
+function goToChat(){}
+
+</script>
+</body>
+</html>
